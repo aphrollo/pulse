@@ -3,9 +3,11 @@ package app
 import (
 	"time"
 
-	"github.com/aphrollo/pulse/internal/handlers"
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+
+	"github.com/aphrollo/pulse/internal/handlers"
 )
 
 func New() *fiber.App {
@@ -18,6 +20,15 @@ func New() *fiber.App {
 
 	// Middlewares
 	app.Use(logger.New())
+
+	cfg := swagger.Config{
+		BasePath: "/",
+		FilePath: "./docs/swagger.json",
+		Path:     "docs",
+		Title:    "API Docs",
+	}
+
+	app.Use(swagger.New(cfg))
 
 	// Static files
 	app.Static("/", "./static", fiber.Static{
