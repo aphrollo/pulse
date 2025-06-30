@@ -18,7 +18,16 @@ type WorkerRegisterRequest struct {
 	Info map[string]interface{} `json:"info"` // Optional additional info
 }
 
-// WorkerRegisterHandler registers a new worker or updates if exists
+// WorkerRegisterHandler registers a new worker
+// @Summary Register a worker
+// @Description Registers a worker by UUID, name, type, and optional metadata
+// @Tags Worker
+// @Accept json
+// @Produce json
+// @Param request body WorkerRegisterRequest true "Worker registration info"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /worker/register [post]
 func WorkerRegisterHandler(c *fiber.Ctx) error {
 	var req WorkerRegisterRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -65,7 +74,16 @@ type WorkerUpdateRequest struct {
 	Message string `json:"info,omitempty"` // Partial updates allowed
 }
 
-// WorkerUpdateHandler logs a status update with optional message
+// WorkerUpdateHandler updates an existing worker's status or metadata
+// @Summary Update worker status
+// @Description Updates worker state and optional info (partial updates allowed)
+// @Tags Worker
+// @Accept json
+// @Produce json
+// @Param request body WorkerUpdateRequest true "Worker update info"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /worker/update [post]
 func WorkerUpdateHandler(c *fiber.Ctx) error {
 	var req WorkerUpdateRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -98,7 +116,16 @@ type WorkerHeartbeatRequest struct {
 	Status string `json:"status"` // Must be one of worker_status enum
 }
 
-// WorkerHeartbeatHandler logs a heartbeat status
+// WorkerHeartbeatHandler receives a heartbeat ping from a worker
+// @Summary Heartbeat signal
+// @Description Receives regular heartbeat signal from workers
+// @Tags Worker
+// @Accept json
+// @Produce json
+// @Param request body WorkerHeartbeatRequest true "Worker heartbeat info"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /worker/heartbeat [post]
 func WorkerHeartbeatHandler(c *fiber.Ctx) error {
 	var req WorkerHeartbeatRequest
 	if err := c.BodyParser(&req); err != nil {
