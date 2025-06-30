@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	db "github.com/aphrollo/pulse/internal/storage"
-	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/joho/godotenv"
+
+	db "github.com/aphrollo/pulse/internal/storage"
 )
 
 // helper to setup app and DB once per test
