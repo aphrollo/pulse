@@ -48,9 +48,9 @@ func New() *fiber.App {
 	app.Get("/", handlers.DashboardHandler)
 
 	worker := app.Group("/worker")
-	worker.Get("register", handlers.WorkerRegisterHandler)
-	worker.Get("update", handlers.WorkerUpdateHandler)
-	worker.Get("heartbeat", handlers.WorkerHeartbeatHandler)
+	worker.Post("register", handlers.WorkerRegisterHandler)
+	worker.Post("update", handlers.WorkerUpdateHandler)
+	worker.Post("heartbeat", handlers.WorkerHeartbeatHandler)
 
 	return app
 }
