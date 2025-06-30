@@ -1,0 +1,36 @@
+# Binaries
+/tmp/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+*.test
+*.out
+
+# Go build artifacts
+bin/
+*.log
+
+# Templ build artifacts
+*.templ.go
+
+# Air temp files
+.air/
+tmp/
+air.conf
+.air.toml # Only ignore if you're okay not sharing config
+
+# Dependency directories (if using vendoring)
+vendor/
+
+# IDE/editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# OS-specific files
+Thumbs.db
+ehthumbs.db
