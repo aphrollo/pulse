@@ -14,12 +14,16 @@ bin/
 
 # Templ build artifacts
 *.templ.go
+*_templ.go
 
 # Air temp files
 .air/
 tmp/
 air.conf
 .air.toml # Only ignore if you're okay not sharing config
+
+# Compressed files
+*.gz
 
 # Dependency directories (if using vendoring)
 vendor/
