@@ -16,7 +16,6 @@ import (
 	db "github.com/aphrollo/pulse/internal/storage"
 )
 
-// helper to setup app and DB once per test
 func setupApp(t *testing.T) *fiber.App {
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("Warning: .env file not found or failed to load")
@@ -24,7 +23,6 @@ func setupApp(t *testing.T) *fiber.App {
 	if err := db.Connect(); err != nil {
 		t.Fatalf("Failed to connect to DB: %v", err)
 	}
-	t.Cleanup(db.Close)
 
 	app := fiber.New()
 	app.Post("/worker/register", WorkerRegisterHandler)
@@ -33,7 +31,7 @@ func setupApp(t *testing.T) *fiber.App {
 	return app
 }
 
-func TestWorkerHandler_Success(t *testing.T) {
+func TestWorkerHandler(t *testing.T) {
 	app := setupApp(t)
 
 	payload := WorkerRegisterRequest{
@@ -68,14 +66,31 @@ func TestWorkerHandler_Success(t *testing.T) {
 		t.Errorf("DB record does not match payload")
 	}
 
-	TestWorkerUpdateHandler_Success(t)
-	TestWorkerHeartbeatHandler_Success(t)
+	t.Run("WorkerRegisterInvalidUUID", TestWorkerRegisterHandler_InvalidUUID)
+	t.Run("WorkerRegisterEmptyName", TestWorkerRegisterHandler_EmptyName)
+	t.Run("WorkerRegisterMissingName", TestWorkerRegisterHandler_MissingName)
+	t.Run("WorkerRegisterInvalidJSON", TestWorkerRegisterHandler_InvalidJSON)
+	t.Run("WorkerRegisterInvalidType", TestWorkerRegisterHandler_InvalidType)
+
+	t.Run("WorkerUpdate", TestWorkerUpdateHandler_InvalidUUID)
+	t.Run("WorkerUpdate", TestWorkerUpdateHandler_InvalidJSON)
+	t.Run("WorkerUpdate", TestWorkerUpdateHandler_InvalidStatus)
+	t.Run("WorkerUpdate", TestWorkerUpdateHandler_MissingStatus)
+	t.Run("WorkerUpdate", TestWorkerUpdateHandler_Success)
+
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_InvalidJSON)
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_InvalidUUID)
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_MissingFields)
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_InvalidStatus)
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_EmptyStatus)
+	t.Run("WorkerHeartbeat", TestWorkerHeartbeatHandler_Success)
 
 	// Cleanup test data after assertion
 	_, err = db.Pool.Exec(ctx, `DELETE FROM workers WHERE id = $1`, payload.ID)
 	if err != nil {
 		t.Logf("Failed to cleanup test data: %v", err)
 	}
+	t.Cleanup(db.Close)
 }
 
 // Worker Register Handler
@@ -105,6 +120,19 @@ func TestWorkerRegisterHandler_EmptyName(t *testing.T) {
 	}
 }
 
+func TestWorkerRegisterHandler_MissingName(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id":"123e4567-e89b-12d3-a456-426614174000","type":"bot"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request due to missing name, got %d", resp.StatusCode)
+	}
+}
+
 func TestWorkerRegisterHandler_InvalidJSON(t *testing.T) {
 	app := setupApp(t)
 
@@ -115,6 +143,33 @@ func TestWorkerRegisterHandler_InvalidJSON(t *testing.T) {
 	resp, _ := app.Test(req)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("Expected 400 Bad Request due to invalid JSON, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerRegisterHandler_InvalidType(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id":"123e4567-e89b-12d3-a456-426614174000","name":"test-worker","type":"invalid-type"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	// assuming your handler validates 'Type' and rejects invalid ones
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request due to invalid type, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerRegisterHandler_MissingType(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id":"123e4567-e89b-12d3-a456-426614174000","name":"test-worker"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request due to missing type, got %d", resp.StatusCode)
 	}
 }
 
@@ -196,6 +251,33 @@ func TestWorkerUpdateHandler_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestWorkerUpdateHandler_InvalidStatus(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id":"123e4567-e89b-12d3-a456-426614174000","status":"invalid_status","message":"test"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	if resp.StatusCode != fiber.StatusBadRequest && resp.StatusCode != fiber.StatusInternalServerError {
+		t.Errorf("Expected 400 Bad Request or 500 Internal Server Error for invalid status, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerUpdateHandler_MissingStatus(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id":"123e4567-e89b-12d3-a456-426614174000","message":"test"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	// Depends if your handler requires status or allows optional status updates
+	if resp.StatusCode != fiber.StatusOK && resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 200 OK or 400 Bad Request for missing status, got %d", resp.StatusCode)
+	}
+}
+
 // Worker Heartbeat Handler
 func TestWorkerHeartbeatHandler_Success(t *testing.T) {
 	app := setupApp(t) // uses real DB connection
@@ -241,5 +323,90 @@ func TestWorkerHeartbeatHandler_Success(t *testing.T) {
 	_, err = db.Pool.Exec(ctx, `DELETE FROM worker_heartbeats WHERE worker_id = $1 AND status = $2`, payload.ID, payload.Status)
 	if err != nil {
 		t.Logf("Cleanup failed: %v", err)
+	}
+}
+
+func TestWorkerHeartbeatHandler_InvalidJSON(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id": "123e4567-e89b-12d3-a456-426614174000", "status":` // malformed JSON
+	req := httptest.NewRequest(http.MethodPost, "/worker/heartbeat", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for malformed JSON, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerHeartbeatHandler_InvalidUUID(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id": "invalid-uuid", "status": "healthy"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/heartbeat", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for invalid UUID, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerHeartbeatHandler_MissingFields(t *testing.T) {
+	app := setupApp(t)
+
+	// Missing status field
+	body := `{"id": "123e4567-e89b-12d3-a456-426614174000"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/heartbeat", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+	// If your handler doesn't explicitly check for missing fields, it might succeed. Adjust as needed.
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for missing fields, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerHeartbeatHandler_InvalidStatus(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id": "123e4567-e89b-12d3-a456-426614174000", "status": "invalid_status"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/heartbeat", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+	// If your handler validates the status against enum and rejects invalid ones:
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for invalid status, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerHeartbeatHandler_EmptyStatus(t *testing.T) {
+	app := setupApp(t)
+
+	body := `{"id": "123e4567-e89b-12d3-a456-426614174000", "status": ""}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/heartbeat", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+
+	// Adjust expected behavior depending on whether empty status is valid
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for empty status, got %d", resp.StatusCode)
 	}
 }

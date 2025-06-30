@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	db "github.com/aphrollo/pulse/internal/storage"
 )
@@ -16,6 +18,17 @@ type ApiResponse struct {
 // ApiErrorResponse represents a generic error API response
 type ApiErrorResponse struct {
 	Message string `json:"message" example:"ERROR_MESSAGE"`
+}
+
+var allowedWorkerTypes = map[string]bool{
+	"bot":   true,
+	"agent": true,
+	// add other valid types here
+}
+
+var allowedWorkerStatus = map[string]bool{
+	"starting": true, "healthy": true, "working": true, "idle": true,
+	"error": true, "unreachable": true, "crashed": true, "stopped": true, "disabled": true,
 }
 
 // WorkerRegisterRequest Request to register a worker
@@ -49,19 +62,23 @@ func WorkerRegisterHandler(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
+	if !allowedWorkerTypes[req.Type] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid worker type"})
+	}
 
 	ctx := context.Background()
-	// Upsert worker (insert or update)
+
+	// If you want to reject duplicates:
 	sql := `
 		INSERT INTO workers (id, name, type)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (id) DO UPDATE SET
-			name = EXCLUDED.name,
-			type = EXCLUDED.type,
-			time = now()
 	`
 	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "worker ID already exists"})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register worker"})
 	}
 
@@ -95,6 +112,11 @@ func WorkerUpdateHandler(c *fiber.Ctx) error {
 	id, err := uuid.Parse(req.ID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid UUID"})
+	}
+
+	// Validate status is provided (if required)
+	if req.Status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status is required"})
 	}
 
 	ctx := context.Background()
@@ -138,7 +160,12 @@ func WorkerHeartbeatHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid UUID"})
 	}
 
-	// Validate status? (optional)
+	if req.Status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status is required"})
+	}
+	if !allowedWorkerStatus[req.Status] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid status value"})
+	}
 
 	ctx := context.Background()
 	sql := `
