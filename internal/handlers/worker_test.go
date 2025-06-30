@@ -17,6 +17,21 @@ import (
 	db "github.com/aphrollo/pulse/internal/storage"
 )
 
+type mockPoolSuccess struct{}
+
+func (m *mockPoolSuccess) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	// return the zero‐value tag and no error
+	return pgconn.CommandTag{}, nil
+}
+func (m *mockPoolSuccess) Close() {}
+
+type mockPoolFail struct{}
+
+func (m *mockPoolFail) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, fmt.Errorf("mock error")
+}
+func (m *mockPoolFail) Close() {}
+
 // helper to setup app and DB once per test
 func setupApp(t *testing.T) *fiber.App {
 	if err := godotenv.Load("../../.env"); err != nil {
@@ -29,9 +44,11 @@ func setupApp(t *testing.T) *fiber.App {
 
 	app := fiber.New()
 	app.Post("/worker/register", WorkerRegisterHandler)
+	app.Post("/worker/update", WorkerUpdateHandler)
 	return app
 }
 
+// Worker Register Handler
 func TestWorkerRegisterHandler_Success(t *testing.T) {
 	app := setupApp(t)
 
@@ -93,25 +110,36 @@ func TestWorkerRegisterHandler_InvalidJSON(t *testing.T) {
 	}
 }
 
-// To test DB failure, temporarily replace db.Pool with a failing mock.
-// Here’s an example of a minimal mock you can extend:
+func TestWorkerRegisterHandler_DBSuccess(t *testing.T) {
+	app := fiber.New()
 
-type mockPool struct{}
+	origPool := db.Pool
+	db.Pool = &mockPoolSuccess{} // use success mock here
+	defer func() { db.Pool = origPool }()
 
-func (m *mockPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	var tag pgconn.CommandTag // zero value
-	return tag, fmt.Errorf("mock error")
-}
+	app.Post("/worker/register", WorkerRegisterHandler)
 
-func (m *mockPool) Close() {
-	// nothing to do, mock close
+	payload := WorkerRegisterRequest{
+		ID:   "123e4567-e89b-12d3-a456-426614174000",
+		Name: "test-worker",
+		Type: "bot",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/worker/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected 200 OK on successful DB exec, got %d", resp.StatusCode)
+	}
 }
 
 func TestWorkerRegisterHandler_DBFailure(t *testing.T) {
 	app := fiber.New()
 
 	origPool := db.Pool
-	db.Pool = &mockPool{}
+	db.Pool = &mockPoolFail{} // use fail mock here
 	defer func() { db.Pool = origPool }()
 
 	app.Post("/worker/register", WorkerRegisterHandler)
@@ -128,6 +156,116 @@ func TestWorkerRegisterHandler_DBFailure(t *testing.T) {
 
 	resp, _ := app.Test(req)
 	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("Expected 500 Internal Server Error on DB failure, got %d", resp.StatusCode)
+	}
+}
+
+// Worker Update Handler
+func TestWorkerUpdateHandler_Success(t *testing.T) {
+	app := setupApp(t)
+
+	// Override db.Pool with success mock
+	origPool := db.Pool
+	db.Pool = &mockPoolSuccess{}
+	defer func() { db.Pool = origPool }()
+
+	payload := WorkerUpdateRequest{
+		ID:      "123e4567-e89b-12d3-a456-426614174000",
+		Status:  "active",
+		Message: "all systems go",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerUpdateHandler_InvalidUUID(t *testing.T) {
+	app := setupApp(t)
+
+	payload := `{"id":"not-a-uuid","status":"active","message":"test"}`
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for invalid UUID, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerUpdateHandler_InvalidJSON(t *testing.T) {
+	app := setupApp(t)
+
+	payload := `{"id": "123e4567-e89b-12d3-a456-426614174000", "status": "active"` // malformed JSON
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for invalid JSON, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerUpdateHandler_DBSuccess(t *testing.T) {
+	app := setupApp(t)
+
+	// Use mockPoolSuccess to simulate successful DB Exec
+	origPool := db.Pool
+	db.Pool = &mockPoolSuccess{}
+	defer func() { db.Pool = origPool }()
+
+	payload := WorkerUpdateRequest{
+		ID:      "123e4567-e89b-12d3-a456-426614174000",
+		Status:  "active",
+		Message: "all systems go",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Error on test request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
+	}
+}
+
+func TestWorkerUpdateHandler_DBFailure(t *testing.T) {
+	app := setupApp(t)
+
+	// Override db.Pool with failure mock
+	origPool := db.Pool
+	db.Pool = &mockPoolFail{}
+	defer func() { db.Pool = origPool }()
+
+	payload := WorkerUpdateRequest{
+		ID:      "123e4567-e89b-12d3-a456-426614174000",
+		Status:  "active",
+		Message: "test failure",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/worker/update", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	if resp.StatusCode != fiber.StatusInternalServerError {
 		t.Errorf("Expected 500 Internal Server Error on DB failure, got %d", resp.StatusCode)
 	}
 }
