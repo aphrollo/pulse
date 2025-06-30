@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
@@ -22,10 +20,9 @@ type ApiErrorResponse struct {
 
 // WorkerRegisterRequest Request to register a worker
 type WorkerRegisterRequest struct {
-	ID   string                 `json:"id"`   // UUID string
-	Name string                 `json:"name"` // Required
-	Type string                 `json:"type"`
-	Info map[string]interface{} `json:"info"` // Optional additional info
+	ID   string `json:"id"`   // UUID string
+	Name string `json:"name"` // Required
+	Type string `json:"type"`
 }
 
 // WorkerRegisterHandler registers a new worker
@@ -53,24 +50,17 @@ func WorkerRegisterHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
 
-	// Convert Info to JSON
-	infoJSON, err := json.Marshal(req.Info)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to encode info"})
-	}
-
 	ctx := context.Background()
 	// Upsert worker (insert or update)
 	sql := `
-		INSERT INTO workers (id, name, type, info)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO workers (id, name, type)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			type = EXCLUDED.type,
-			info = EXCLUDED.info,
 			time = now()
 	`
-	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type, infoJSON)
+	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register worker"})
 	}
