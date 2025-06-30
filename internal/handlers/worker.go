@@ -97,8 +97,6 @@ func WorkerUpdateHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid UUID"})
 	}
 
-	// Validate status? (optional, you can check against enum list)
-
 	ctx := context.Background()
 	sql := `
 		INSERT INTO worker_updates (worker_id, status, message)

@@ -3,18 +3,12 @@ package storage
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgconn"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var Pool DBPool
-
-type DBPool interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-	Close()
-}
+var Pool *pgxpool.Pool
 
 func Connect() error {
 	dsn := os.Getenv("DATABASE_URL")
