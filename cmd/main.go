@@ -1,41 +1,14 @@
 package main
 
 import (
-	"time"
-
-	"github.com/aphrollo/pulse/internal/handlers"
-	"github.com/gofiber/fiber/v2"
+	"github.com/aphrollo/pulse/internal/app"
+	"log"
 )
 
 func main() {
-	app := fiber.New()
+	api := app.New()
 
-	/// App
-
-	// Static resources; images, js, css
-	app.Static("/", "./static", fiber.Static{
-		Compress:      true,
-		ByteRange:     true,
-		Browse:        false,
-		Download:      false,
-		CacheDuration: 5 * time.Minute,
-		MaxAge:        86400,
-		ModifyResponse: func(c *fiber.Ctx) error {
-			c.Set("Cache-Control", "public, max-age=86400")
-			return nil
-		},
-	})
-
-	// Favicon
-	//app.Use(favicon.New(favicon.Config{
-	//	File: "./static/images/favicon.ico",
-	//	URL:  "/favicon.ico",
-	//}))
-
-	// Dashboard
-	app.Get("/", handlers.DashboardHandler)
-
-	if err := app.Listen(":3000"); err != nil {
-		panic(err)
+	if err := api.Listen(":3000"); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
