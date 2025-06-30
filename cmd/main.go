@@ -10,6 +10,8 @@ import (
 func main() {
 	app := fiber.New()
 
+	/// App
+
 	// Static resources; images, js, css
 	app.Static("/", "./static", fiber.Static{
 		Compress:      true,
@@ -24,13 +26,14 @@ func main() {
 		},
 	})
 
-	app.Get("/", handlers.DashboardHandler)
-
 	// Favicon
 	//app.Use(favicon.New(favicon.Config{
 	//	File: "./static/images/favicon.ico",
 	//	URL:  "/favicon.ico",
 	//}))
+
+	// Dashboard
+	app.Get("/", handlers.DashboardHandler)
 
 	if err := app.Listen(":3000"); err != nil {
 		panic(err)
