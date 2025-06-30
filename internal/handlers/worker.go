@@ -18,19 +18,6 @@ type WorkerRegisterRequest struct {
 	Info map[string]interface{} `json:"info"` // Optional additional info
 }
 
-// WorkerUpdateRequest Request to update a worker's metadata/settings
-type WorkerUpdateRequest struct {
-	ID      string `json:"id"`             // Worker UUID string
-	Status  string `json:"status"`         // Must be one of worker_status enum
-	Message string `json:"info,omitempty"` // Partial updates allowed
-}
-
-// WorkerHeartbeatRequest Request to send a worker heartbeat/status
-type WorkerHeartbeatRequest struct {
-	ID     string `json:"id"`     // Worker UUID string
-	Status string `json:"status"` // Must be one of worker_status enum
-}
-
 // WorkerRegisterHandler registers a new worker or updates if exists
 func WorkerRegisterHandler(c *fiber.Ctx) error {
 	var req WorkerRegisterRequest
@@ -71,6 +58,13 @@ func WorkerRegisterHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "worker registered"})
 }
 
+// WorkerUpdateRequest Request to update a worker's metadata/settings
+type WorkerUpdateRequest struct {
+	ID      string `json:"id"`             // Worker UUID string
+	Status  string `json:"status"`         // Must be one of worker_status enum
+	Message string `json:"info,omitempty"` // Partial updates allowed
+}
+
 // WorkerUpdateHandler logs a status update with optional message
 func WorkerUpdateHandler(c *fiber.Ctx) error {
 	var req WorkerUpdateRequest
@@ -96,6 +90,12 @@ func WorkerUpdateHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"status": "worker status updated"})
+}
+
+// WorkerHeartbeatRequest Request to send a worker heartbeat/status
+type WorkerHeartbeatRequest struct {
+	ID     string `json:"id"`     // Worker UUID string
+	Status string `json:"status"` // Must be one of worker_status enum
 }
 
 // WorkerHeartbeatHandler logs a heartbeat status
