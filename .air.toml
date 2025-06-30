@@ -3,7 +3,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "templ generate; go build -o ./tmp/main.exe ./cmd"
+cmd = "templ generate; swag init -g main.go; go build -o ./tmp/main.exe ./cmd"
 bin = "tmp/main.exe"
 include_ext = ["go", "tpl", "templ", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "node_modules"]

@@ -7,6 +7,7 @@
 /*.dylib
 *.test
 *.out
+.env
 
 # Go build artifacts
 bin/
