@@ -16,25 +16,9 @@ type Agent struct {
 	ID     uuid.UUID
 	Name   string
 	Type   string
+	Info   map[string]interface{}
 	Server string
 	Client *http.Client
-}
-
-type registerPayload struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-
-type heartbeatPayload struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
-}
-
-type updatePayload struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
 }
 
 // New initializes a new Agent using env vars
@@ -51,35 +35,6 @@ func New(name, agentType string) *Agent {
 		Server: server,
 		Client: &http.Client{Timeout: 5 * time.Second},
 	}
-}
-
-// Register sends the registration request to Pulse
-func (a *Agent) Register() error {
-	payload := registerPayload{
-		ID:   a.ID.String(),
-		Name: a.Name,
-		Type: a.Type,
-	}
-	return a.post("/agent/register", payload)
-}
-
-// Heartbeat sends a heartbeat signal to Pulse
-func (a *Agent) Heartbeat(status string) error {
-	payload := heartbeatPayload{
-		ID:     a.ID.String(),
-		Status: status,
-	}
-	return a.post("/agent/heartbeat", payload)
-}
-
-// Update sends a status update with optional message
-func (a *Agent) Update(status, message string) error {
-	payload := updatePayload{
-		ID:      a.ID.String(),
-		Status:  status,
-		Message: message,
-	}
-	return a.post("/agent/update", payload)
 }
 
 func (a *Agent) post(path string, payload any) error {
@@ -99,4 +54,52 @@ func (a *Agent) post(path string, payload any) error {
 		return fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+type registerPayload struct {
+	ID   string                 `json:"id"`
+	Name string                 `json:"name"`
+	Type string                 `json:"type"`
+	Info map[string]interface{} `json:"info,omitempty"`
+}
+
+// Register sends the registration request to Pulse
+func (a *Agent) Register() error {
+	payload := registerPayload{
+		ID:   a.ID.String(),
+		Name: a.Name,
+		Type: a.Type,
+		Info: a.Info,
+	}
+	return a.post("/agent/register", payload)
+}
+
+type heartbeatPayload struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+// Heartbeat sends a heartbeat signal to Pulse
+func (a *Agent) Heartbeat(status string) error {
+	payload := heartbeatPayload{
+		ID:     a.ID.String(),
+		Status: status,
+	}
+	return a.post("/agent/heartbeat", payload)
+}
+
+type updatePayload struct {
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// Update sends a status update with optional message
+func (a *Agent) Update(status, message string) error {
+	payload := updatePayload{
+		ID:      a.ID.String(),
+		Status:  status,
+		Message: message,
+	}
+	return a.post("/agent/update", payload)
 }
