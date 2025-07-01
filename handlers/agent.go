@@ -22,6 +22,16 @@ type ApiErrorResponse struct {
 
 var AllowedAgentTypes []string
 
+// isAllowedAgentType helper function to check if type is in AllowedAgentTypes
+func isAllowedAgentType(t string) bool {
+	for _, allowed := range AllowedAgentTypes {
+		if allowed == t {
+			return true
+		}
+	}
+	return false
+}
+
 var allowedAgentStatus = map[string]bool{
 	"starting": true, "healthy": true, "working": true, "idle": true,
 	"error": true, "unreachable": true, "crashed": true, "stopped": true, "disabled": true,
@@ -58,7 +68,7 @@ func AgentRegisterHandler(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	if !AllowedAgentTypes[req.Type] {
+	if !isAllowedAgentType(req.Type) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid Agent type"})
 	}
 
