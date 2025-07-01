@@ -20,9 +20,7 @@ type ApiErrorResponse struct {
 	Message string `json:"message" example:"ERROR_MESSAGE"`
 }
 
-var allowedAgentTypes = map[string]bool{
-	"default": true,
-}
+var AllowedAgentTypes []string
 
 var allowedAgentStatus = map[string]bool{
 	"starting": true, "healthy": true, "working": true, "idle": true,
@@ -60,7 +58,7 @@ func AgentRegisterHandler(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	if !allowedAgentTypes[req.Type] {
+	if !AllowedAgentTypes[req.Type] {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid Agent type"})
 	}
 

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/swagger"
@@ -11,6 +13,17 @@ import (
 )
 
 func New() *fiber.App {
+	typesStr := os.Getenv("ALLOWED_AGENT_TYPES")
+	if typesStr == "" {
+		// default fallback
+		handlers.AllowedAgentTypes = []string{"default"}
+	} else {
+		handlers.AllowedAgentTypes = strings.Split(typesStr, ",")
+		for i := range handlers.AllowedAgentTypes {
+			handlers.AllowedAgentTypes[i] = strings.TrimSpace(handlers.AllowedAgentTypes[i])
+		}
+	}
+
 	app := fiber.New(fiber.Config{
 		// Customize Fiber config here
 		ReadTimeout:  10 * time.Second,
