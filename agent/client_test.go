@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"github.com/aphrollo/pulse/utils"
 	"github.com/google/uuid"
 	"net/http"
 	"net/http/httptest"
@@ -96,6 +97,7 @@ func TestAgent_Register_MarshalError(t *testing.T) {
 
 // Test Register with missing PULSE_SERVER_URL env variable triggers fatal
 func TestNew_FatalOnMissingServerURL(t *testing.T) {
+	utils.LoadEnvFromRoot()
 	// Unset env var
 	os.Unsetenv("PULSE_SERVER_URL")
 
