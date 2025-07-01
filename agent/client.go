@@ -2,70 +2,101 @@ package agent
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-type Client struct {
-	BaseURL    string       // Base URL of the Pulse API, e.g. "https://api.pulse.example.com"
-	HTTPClient *http.Client // HTTP client to use for requests
+type Agent struct {
+	ID     uuid.UUID
+	Name   string
+	Type   string
+	Server string
+	Client *http.Client
 }
 
-func New(baseURL string, httpClient *http.Client, regReq WorkerRegisterRequest) (*Client, error) {
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 10 * time.Second}
-	}
-
-	client := &Client{
-		BaseURL:    baseURL,
-		HTTPClient: httpClient,
-	}
-
-	// Register worker with Pulse
-	ctx := context.Background()
-	resp, err := client.RegisterWorker(ctx, regReq)
-	if err != nil {
-		return nil, fmt.Errorf("worker registration failed: %w", err)
-	}
-
-	fmt.Println("Registered worker:", resp.Message)
-	return client, nil
+type registerPayload struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
-func (c *Client) RegisterWorker(ctx context.Context, req WorkerRegisterRequest) (*ApiResponse, error) {
-	// Marshal request JSON
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal register request: %w", err)
+type heartbeatPayload struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type updatePayload struct {
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// New initializes a new Agent using env vars
+func New(name, agentType string) *Agent {
+	server := os.Getenv("PULSE_SERVER_URL")
+	if server == "" {
+		log.Fatal("PULSE_SERVER_URL not set")
 	}
 
-	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/worker/register", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	return &Agent{
+		ID:     uuid.New(),
+		Name:   name,
+		Type:   agentType,
+		Server: server,
+		Client: &http.Client{Timeout: 5 * time.Second},
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
+}
 
-	// Execute request
-	resp, err := c.HTTPClient.Do(httpReq)
+// Register sends the registration request to Pulse
+func (a *Agent) Register() error {
+	payload := registerPayload{
+		ID:   a.ID.String(),
+		Name: a.Name,
+		Type: a.Type,
+	}
+	return a.post("/agent/register", payload)
+}
+
+// Heartbeat sends a heartbeat signal to Pulse
+func (a *Agent) Heartbeat(status string) error {
+	payload := heartbeatPayload{
+		ID:     a.ID.String(),
+		Status: status,
+	}
+	return a.post("/agent/heartbeat", payload)
+}
+
+// Update sends a status update with optional message
+func (a *Agent) Update(status, message string) error {
+	payload := updatePayload{
+		ID:      a.ID.String(),
+		Status:  status,
+		Message: message,
+	}
+	return a.post("/agent/update", payload)
+}
+
+func (a *Agent) post(path string, payload any) error {
+	data, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute HTTP request: %w", err)
+		return fmt.Errorf("marshal error: %w", err)
+	}
+
+	url := fmt.Sprintf("%s%s", a.Server, path)
+	resp, err := a.Client.Post(url, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("post error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read and decode response
-	var apiResp ApiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Check HTTP status code for errors
 	if resp.StatusCode != http.StatusOK {
-		return &apiResp, fmt.Errorf("server returned status %d: %s", resp.StatusCode, apiResp.Message)
+		return fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
-
-	return &apiResp, nil
+	return nil
 }
