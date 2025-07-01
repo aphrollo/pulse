@@ -47,10 +47,10 @@ func New() *fiber.App {
 	// Routes
 	app.Get("/", handlers.DashboardHandler)
 
-	worker := app.Group("/worker")
-	worker.Post("register", handlers.WorkerRegisterHandler)
-	worker.Post("update", handlers.WorkerUpdateHandler)
-	worker.Post("heartbeat", handlers.WorkerHeartbeatHandler)
+	client := app.Group("/client")
+	client.Post("register", handlers.ClientRegisterHandler)
+	client.Post("update", handlers.ClientUpdateHandler)
+	client.Post("heartbeat", handlers.ClientHeartbeatHandler)
 
 	return app
 }

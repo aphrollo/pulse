@@ -20,37 +20,35 @@ type ApiErrorResponse struct {
 	Message string `json:"message" example:"ERROR_MESSAGE"`
 }
 
-var allowedWorkerTypes = map[string]bool{
-	"bot":   true,
-	"agent": true,
-	// add other valid types here
+var allowedAgentTypes = map[string]bool{
+	"default": true,
 }
 
-var allowedWorkerStatus = map[string]bool{
+var allowedAgentStatus = map[string]bool{
 	"starting": true, "healthy": true, "working": true, "idle": true,
 	"error": true, "unreachable": true, "crashed": true, "stopped": true, "disabled": true,
 }
 
-// WorkerRegisterRequest Request to register a worker
-type WorkerRegisterRequest struct {
+// AgentRegisterRequest Request to register a Agent
+type AgentRegisterRequest struct {
 	ID   string `json:"id"`   // UUID string
 	Name string `json:"name"` // Required
 	Type string `json:"type"`
 }
 
-// WorkerRegisterHandler registers a new worker
-// @Summary Register a worker
-// @Description Registers a worker by UUID, name, type, and optional metadata
-// @Tags Worker
+// AgentRegisterHandler registers a new Agent
+// @Summary Register a Agent
+// @Description Registers a Agent by UUID, name, type, and optional metadata
+// @Tags Agent
 // @Accept json
 // @Produce json
-// @Param request body WorkerRegisterRequest true "Worker registration info"
+// @Param request body AgentRegisterRequest true "Agent registration info"
 // @Success 200 {object} ApiResponse "Success response `{"message":"OK"}`"
 // @Failure 400 {object} ApiErrorResponse "BAD_REQUEST - The query contains errors. In the event that a request was created using a form and contains user generated data, the user should be notified that the data must be corrected before the query is repeated. `{"message":"BAD_REQUEST"}`"
 // @Failure 401 {object} ApiErrorResponse "UNAUTHORIZED - There was an unauthorized attempt to use functionality available only to authorized users. `{"message":"UNAUTHORIZED"}`"
-// @Router /worker/register [post]
-func WorkerRegisterHandler(c *fiber.Ctx) error {
-	var req WorkerRegisterRequest
+// @Router /agent/register [post]
+func AgentRegisterHandler(c *fiber.Ctx) error {
+	var req AgentRegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
@@ -62,49 +60,49 @@ func WorkerRegisterHandler(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	if !allowedWorkerTypes[req.Type] {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid worker type"})
+	if !allowedAgentTypes[req.Type] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid Agent type"})
 	}
 
 	ctx := context.Background()
 
 	// If you want to reject duplicates:
 	sql := `
-		INSERT INTO workers (id, name, type)
+		INSERT INTO agents (id, name, type)
 		VALUES ($1, $2, $3)
 	`
 	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "worker ID already exists"})
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Agent ID already exists"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register worker"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register Agent"})
 	}
 
-	return c.JSON(fiber.Map{"status": "worker registered"})
+	return c.JSON(fiber.Map{"status": "Agent registered"})
 }
 
-// WorkerUpdateRequest Request to update a worker's metadata/settings
-type WorkerUpdateRequest struct {
-	ID      string `json:"id"`             // Worker UUID string
-	Status  string `json:"status"`         // Must be one of worker_status enum
+// AgentUpdateRequest Request to update a Agent's metadata/settings
+type AgentUpdateRequest struct {
+	ID      string `json:"id"`             // Agent UUID string
+	Status  string `json:"status"`         // Must be one of Agent_status enum
 	Message string `json:"info,omitempty"` // Partial updates allowed
 }
 
-// WorkerUpdateHandler updates an existing worker's status or metadata
-// @Summary Update worker status
-// @Description Updates worker state and optional info (partial updates allowed)
-// @Tags Worker
+// AgentUpdateHandler updates an existing Agent's status or metadata
+// @Summary Update Agent status
+// @Description Updates Agent state and optional info (partial updates allowed)
+// @Tags Agent
 // @Accept json
 // @Produce json
-// @Param request body WorkerUpdateRequest true "Worker update info"
+// @Param request body AgentUpdateRequest true "Agent update info"
 // @Success 200 {object} ApiResponse "Success response `{"message":"OK"}`"
 // @Failure 400 {object} ApiErrorResponse "BAD_REQUEST - The query contains errors. In the event that a request was created using a form and contains user generated data, the user should be notified that the data must be corrected before the query is repeated. `{"message":"BAD_REQUEST"}`"
 // @Failure 401 {object} ApiErrorResponse "UNAUTHORIZED - There was an unauthorized attempt to use functionality available only to authorized users. `{"message":"UNAUTHORIZED"}`"
-// @Router /worker/update [post]
-func WorkerUpdateHandler(c *fiber.Ctx) error {
-	var req WorkerUpdateRequest
+// @Router /agent/update [post]
+func AgentUpdateHandler(c *fiber.Ctx) error {
+	var req AgentUpdateRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
@@ -121,36 +119,36 @@ func WorkerUpdateHandler(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 	sql := `
-		INSERT INTO worker_updates (worker_id, status, message)
+		INSERT INTO agent_updates (Agent_id, status, message)
 		VALUES ($1, $2, $3)
 	`
 	_, err = db.Pool.Exec(ctx, sql, id, req.Status, req.Message)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update worker status"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update Agent status"})
 	}
 
-	return c.JSON(fiber.Map{"status": "worker status updated"})
+	return c.JSON(fiber.Map{"status": "Agent status updated"})
 }
 
-// WorkerHeartbeatRequest Request to send a worker heartbeat/status
-type WorkerHeartbeatRequest struct {
+// AgentHeartbeatRequest Request to send a Agent heartbeat/status
+type AgentHeartbeatRequest struct {
 	ID     string `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
 	Status string `json:"status" example:"healthy"`
 }
 
-// WorkerHeartbeatHandler receives a heartbeat ping from a worker
+// AgentHeartbeatHandler receives a heartbeat ping from a Agent
 // @Summary Heartbeat signal
-// @Description Receives regular heartbeat signal from workers
-// @Tags Worker
+// @Description Receives regular heartbeat signal from Agents
+// @Tags Agent
 // @Accept json
 // @Produce json
-// @Param request body handlers.WorkerHeartbeatRequest true "Worker heartbeat. Possible: `starting`, `healthy`, `working`, `idle`, `error`, `unreachable`, `crashed`, `stopped`, `disabled`"
+// @Param request body handlers.AgentHeartbeatRequest true "Agent heartbeat. Possible: `starting`, `healthy`, `working`, `idle`, `error`, `unreachable`, `crashed`, `stopped`, `disabled`"
 // @Success 200 {object} ApiResponse "Success response `{"message":"OK"}`"
 // @Failure 400 {object} ApiErrorResponse "BAD_REQUEST - The query contains errors. In the event that a request was created using a form and contains user generated data, the user should be notified that the data must be corrected before the query is repeated. `{"message":"BAD_REQUEST"}`"
 // @Failure 401 {object} ApiErrorResponse "UNAUTHORIZED - There was an unauthorized attempt to use functionality available only to authorized users. `{"message":"UNAUTHORIZED"}`"
-// @Router /worker/heartbeat [post]
-func WorkerHeartbeatHandler(c *fiber.Ctx) error {
-	var req WorkerHeartbeatRequest
+// @Router /agent/heartbeat [post]
+func AgentHeartbeatHandler(c *fiber.Ctx) error {
+	var req AgentHeartbeatRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
@@ -163,13 +161,13 @@ func WorkerHeartbeatHandler(c *fiber.Ctx) error {
 	if req.Status == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status is required"})
 	}
-	if !allowedWorkerStatus[req.Status] {
+	if !allowedAgentStatus[req.Status] {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid status value"})
 	}
 
 	ctx := context.Background()
 	sql := `
-		INSERT INTO worker_heartbeats (worker_id, status)
+		INSERT INTO agent_heartbeats (Agent_id, status)
 		VALUES ($1, $2)
 	`
 	_, err = db.Pool.Exec(ctx, sql, id, req.Status)

@@ -1,18 +1,18 @@
 create extension timescaledb;
 
-CREATE TABLE workers (
+CREATE TABLE agents (
     time TIMESTAMPTZ DEFAULT now(),
     id UUID PRIMARY KEY,
     name TEXT NOT NULL,
-    type TEXT,             -- Type of worker (e.g., "bot", "monitor", etc.)
-    info JSONB             -- Additional metadata (e.g., worker config)
+    type TEXT,             -- Type of agent (e.g., "bot", "monitor", etc.)
+    info JSONB             -- Additional metadata (e.g., agent config)
 );
 
 -- Add indexes for faster lookups (if necessary)
-CREATE INDEX idx_workers_name ON workers(name);
-CREATE INDEX idx_workers_last_heartbeat ON workers(time);
+CREATE INDEX idx_agents_name ON agents(name);
+CREATE INDEX idx_agents_last_heartbeat ON agents(time);
 
-CREATE TYPE worker_status AS ENUM (
+CREATE TYPE agent_state AS ENUM (
     'starting',
     'healthy',
     'working',
@@ -24,22 +24,22 @@ CREATE TYPE worker_status AS ENUM (
     'disabled'
     );
 
-CREATE TABLE worker_updates (
+CREATE TABLE agent_updates (
     time TIMESTAMPTZ DEFAULT now(),
-    worker_id UUID REFERENCES workers(id) ON DELETE CASCADE,
-    status worker_status NOT NULL,
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    status agent_state NOT NULL,
     message TEXT
 );
 
 -- Convert this table into a TimescaleDB hypertable for time-series data
-SELECT create_hypertable('worker_updates', 'time');
+SELECT create_hypertable('agent_updates', 'time');
 
--- Create the worker heartbeats table
-CREATE TABLE worker_heartbeats (
+-- Create the agent heartbeats table
+CREATE TABLE agent_heartbeats (
     time TIMESTAMPTZ DEFAULT now(),
-    worker_id UUID REFERENCES workers(id) ON DELETE CASCADE,
-    status worker_status NOT NULL
+    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    status agent_state NOT NULL
 );
 
 -- Convert it into a hypertable for time-series data (by heartbeat_time)
-SELECT create_hypertable('worker_heartbeats', 'time');
+SELECT create_hypertable('agent_heartbeats', 'time');
