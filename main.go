@@ -5,8 +5,8 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/aphrollo/pulse/internal/app"
-	db "github.com/aphrollo/pulse/internal/storage"
+	"github.com/aphrollo/pulse/app"
+	db "github.com/aphrollo/pulse/storage"
 )
 
 func main() {

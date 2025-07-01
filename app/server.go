@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 
-	"github.com/aphrollo/pulse/internal/handlers"
+	"github.com/aphrollo/pulse/handlers"
 )
 
 func New() *fiber.App {

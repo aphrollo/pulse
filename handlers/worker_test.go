@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
-	db "github.com/aphrollo/pulse/internal/storage"
+	db "github.com/aphrollo/pulse/storage"
 )
 
 func setupApp(t *testing.T) *fiber.App {

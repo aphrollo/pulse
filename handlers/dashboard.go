@@ -5,7 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
-	"github.com/aphrollo/pulse/internal/templates"
+	"github.com/aphrollo/pulse/templates"
 )
 
 // DashboardHandler renders the main dashboard UI

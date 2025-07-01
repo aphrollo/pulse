@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	db "github.com/aphrollo/pulse/internal/storage"
+	db "github.com/aphrollo/pulse/storage"
 )
 
 // ApiResponse represents a generic API response
