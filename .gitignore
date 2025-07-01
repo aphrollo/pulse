@@ -40,8 +40,5 @@ vendor/
 Thumbs.db
 ehthumbs.db
 
-# SQL Files
-/sql/
-
 # Docs
 /docs/
