@@ -124,13 +124,13 @@ func (a *Agent) StopHeartbeatLoop() {
 }
 
 type updatePayload struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	ID      string                 `json:"id"`
+	Status  string                 `json:"status"`
+	Message map[string]interface{} `json:"message"`
 }
 
 // Update sends a status update with optional message
-func (a *Agent) Update(status, message string) error {
+func (a *Agent) Update(status string, message map[string]interface{}) error {
 	payload := updatePayload{
 		ID:      a.ID.String(),
 		Status:  status,

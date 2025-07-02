@@ -39,9 +39,10 @@ var allowedAgentStatus = map[string]bool{
 
 // AgentRegisterRequest Request to register a Agent
 type AgentRegisterRequest struct {
-	ID   string `json:"id"`   // UUID string
-	Name string `json:"name"` // Required
-	Type string `json:"type"`
+	ID   string                 `json:"id"`   // UUID string
+	Name string                 `json:"name"` // Required
+	Type string                 `json:"type"`
+	Info map[string]interface{} `json:"info,omitempty"` // Optional JSON object
 }
 
 // AgentRegisterHandler registers a new Agent
@@ -76,10 +77,10 @@ func AgentRegisterHandler(c *fiber.Ctx) error {
 
 	// If you want to reject duplicates:
 	sql := `
-		INSERT INTO agents (id, name, type)
-		VALUES ($1, $2, $3)
+		INSERT INTO agents (id, name, type, info)
+		VALUES ($1, $2, $3, $4)
 	`
-	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type)
+	_, err = db.Pool.Exec(ctx, sql, id, req.Name, req.Type, req.Info)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
@@ -88,14 +89,14 @@ func AgentRegisterHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register Agent"})
 	}
 
-	return c.JSON(fiber.Map{"status": "Agent registered"})
+	return c.JSON(fiber.Map{"status": "OK"})
 }
 
 // AgentUpdateRequest Request to update a Agent's metadata/settings
 type AgentUpdateRequest struct {
-	ID      string `json:"id"`             // Agent UUID string
-	Status  string `json:"status"`         // Must be one of Agent_status enum
-	Message string `json:"info,omitempty"` // Partial updates allowed
+	ID      string                 `json:"id"`             // Agent UUID string
+	Status  string                 `json:"status"`         // Must be one of Agent_status enum
+	Message map[string]interface{} `json:"info,omitempty"` // Partial updates allowed
 }
 
 // AgentUpdateHandler updates an existing Agent's status or metadata
@@ -135,7 +136,7 @@ func AgentUpdateHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update Agent status"})
 	}
 
-	return c.JSON(fiber.Map{"status": "Agent status updated"})
+	return c.JSON(fiber.Map{"status": "OK"})
 }
 
 // AgentHeartbeatRequest Request to send a Agent heartbeat/status
@@ -183,5 +184,5 @@ func AgentHeartbeatHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to insert heartbeat"})
 	}
 
-	return c.JSON(fiber.Map{"status": "heartbeat recorded"})
+	return c.JSON(fiber.Map{"status": "OK"})
 }
