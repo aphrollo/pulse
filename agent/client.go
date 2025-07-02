@@ -105,7 +105,7 @@ func (a *Agent) StartHeartbeatLoop() {
 		for {
 			select {
 			case <-ticker.C:
-				err := a.Heartbeat("ok")
+				err := a.Heartbeat("healthy")
 				if err != nil {
 					log.Printf("heartbeat error: %v", err)
 				} else {
