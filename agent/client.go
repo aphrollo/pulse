@@ -13,12 +13,14 @@ import (
 )
 
 type Agent struct {
-	ID     uuid.UUID
-	Name   string
-	Type   string
-	Info   map[string]interface{}
-	Server string
-	Client *http.Client
+	ID        uuid.UUID
+	Name      string
+	Type      string
+	Info      map[string]interface{}
+	Server    string
+	heartbeat time.Duration
+	Client    *http.Client
+	stopChan  chan struct{}
 }
 
 // New initializes a new Agent using env vars
@@ -27,13 +29,21 @@ func New(name, agentType string) *Agent {
 	if server == "" {
 		log.Fatal("PULSE_SERVER_URL not set")
 	}
+	interval := 60 * time.Second // default
+	if v := os.Getenv("PULSE_HEARTBEAT_INTERVAL"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			interval = parsed
+		}
+	}
 
 	return &Agent{
-		ID:     uuid.New(),
-		Name:   name,
-		Type:   agentType,
-		Server: server,
-		Client: &http.Client{Timeout: 5 * time.Second},
+		ID:        uuid.New(),
+		Name:      name,
+		Type:      agentType,
+		Server:    server,
+		heartbeat: interval,
+		Client:    &http.Client{Timeout: 5 * time.Second},
+		stopChan:  make(chan struct{}),
 	}
 }
 
@@ -86,6 +96,31 @@ func (a *Agent) Heartbeat(status string) error {
 		Status: status,
 	}
 	return a.post("/agent/heartbeat", payload)
+}
+
+func (a *Agent) StartHeartbeatLoop() {
+	ticker := time.NewTicker(a.heartbeat)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := a.Heartbeat("ok")
+				if err != nil {
+					log.Printf("heartbeat error: %v", err)
+				} else {
+					log.Printf("heartbeat sent for agent %s", a.ID)
+				}
+			case <-a.stopChan:
+				log.Println("heartbeat loop stopped")
+				return
+			}
+		}
+	}()
+}
+
+func (a *Agent) StopHeartbeatLoop() {
+	close(a.stopChan)
 }
 
 type updatePayload struct {
